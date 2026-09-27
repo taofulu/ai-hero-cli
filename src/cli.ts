@@ -1,6 +1,7 @@
 import { ProjectStore, STEP_LABELS, STEPS } from './project/store.js';
 import { grillCommand } from './commands/grill.js';
 import { configCommand } from './commands/config.js';
+import { specCommand } from './commands/spec.js';
 import type { LlmClient } from './llm/client.js';
 
 export type CliResult = { code: number; lines: string[] };
@@ -66,7 +67,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
     case 'grill':
       return grillCommand(args, deps);
     case 'spec':
-      return { code: 1, lines: ['✗ spec 将在后续版本提供（MVP 未开放）。'] };
+      return specCommand(args, deps);
     case 'tickets':
       return { code: 1, lines: ['✗ tickets 将在后续版本提供（MVP 未开放）。'] };
     case 'config':
