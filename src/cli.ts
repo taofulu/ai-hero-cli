@@ -43,6 +43,15 @@ function newCommand(args: string[], deps: CliDeps): CliResult {
   };
 }
 
+function placeholderCommand(deps: CliDeps): CliResult {
+  const store = new ProjectStore();
+  const root = store.findProjectRoot(deps.cwd);
+  const hint = root
+    ? 'MVP 未开放：五步法的前半程（拷问 → Spec → 任务卡）已可用，实现与审查将在后续版本提供。'
+    : '✗ 这里不在任何学生项目里。先用 ai-hero new <项目名> 创建一个。';
+  return { code: 1, lines: [hint] };
+}
+
 function statusCommand(_args: string[], deps: CliDeps): CliResult {
   const store = new ProjectStore();
   const root = store.findProjectRoot(deps.cwd);
@@ -73,6 +82,9 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
       return ticketsCommand(args, deps);
     case 'config':
       return configCommand(args, deps);
+    case 'implement':
+    case 'review':
+      return placeholderCommand(deps);
     case 'status':
       return statusCommand(args, deps);
     default:
