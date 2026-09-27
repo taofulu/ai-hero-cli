@@ -23,6 +23,9 @@ export type Progress = {
 
 const AI_HERO_DIR = '.ai-hero';
 const PROGRESS_FILE = 'progress.json';
+const SESSION_FILE = 'grill-session.json';
+
+export type GrillSessionFile = { answers: Record<string, string> };
 
 /** 学生项目文件夹的产物读写与进度管理。 */
 export class ProjectStore {
@@ -68,5 +71,17 @@ export class ProjectStore {
     const file = join(root, AI_HERO_DIR, PROGRESS_FILE);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, JSON.stringify(progress, null, 2) + '\n', 'utf8');
+  }
+
+  readSession(root: string): GrillSessionFile {
+    const file = join(root, AI_HERO_DIR, SESSION_FILE);
+    if (!existsSync(file)) return { answers: {} };
+    return JSON.parse(readFileSync(file, 'utf8')) as GrillSessionFile;
+  }
+
+  writeSession(root: string, session: GrillSessionFile): void {
+    const file = join(root, AI_HERO_DIR, SESSION_FILE);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify(session, null, 2) + '\n', 'utf8');
   }
 }

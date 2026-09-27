@@ -9,10 +9,10 @@ function tempRoot(): string {
 }
 
 describe('命令 new：创建学生项目', () => {
-  it('在当前目录创建同名学生项目文件夹：git init、docs/、进度文件', () => {
+  it('在当前目录创建同名学生项目文件夹：git init、docs/、进度文件', async () => {
     const root = tempRoot();
 
-    const result = runCli(['new', 'my-posture'], { cwd: root });
+    const result = await runCli(['new', 'my-posture'], { cwd: root });
 
     const projectRoot = join(root, 'my-posture');
     expect(result.code).toBe(0);
@@ -23,10 +23,10 @@ describe('命令 new：创建学生项目', () => {
     expect(existsSync(join(projectRoot, '.git'))).toBe(true);
   });
 
-  it('进度文件记录项目名与五步法全部未开始', () => {
+  it('进度文件记录项目名与五步法全部未开始', async () => {
     const root = tempRoot();
 
-    runCli(['new', 'demo'], { cwd: root });
+    await runCli(['new', 'demo'], { cwd: root });
 
     const progress = JSON.parse(
       readFileSync(join(root, 'demo', '.ai-hero', 'progress.json'), 'utf8'),
@@ -41,11 +41,11 @@ describe('命令 new：创建学生项目', () => {
     });
   });
 
-  it('同名文件夹已存在时报错且不覆盖', () => {
+  it('同名文件夹已存在时报错且不覆盖', async () => {
     const root = tempRoot();
-    runCli(['new', 'taken'], { cwd: root });
+    await runCli(['new', 'taken'], { cwd: root });
 
-    const result = runCli(['new', 'taken'], { cwd: root });
+    const result = await runCli(['new', 'taken'], { cwd: root });
 
     expect(result.code).not.toBe(0);
     expect(result.lines.join('\n')).toMatch(/已存在|存在/);
@@ -53,11 +53,11 @@ describe('命令 new：创建学生项目', () => {
 });
 
 describe('命令 status：查看进度', () => {
-  it('新建的项目显示五步法全部未开始', () => {
+  it('新建的项目显示五步法全部未开始', async () => {
     const root = tempRoot();
-    runCli(['new', 's1'], { cwd: root });
+    await runCli(['new', 's1'], { cwd: root });
 
-    const result = runCli(['status'], { cwd: join(root, 's1') });
+    const result = await runCli(['status'], { cwd: join(root, 's1') });
 
     expect(result.code).toBe(0);
     const text = result.lines.join('\n');
@@ -67,10 +67,10 @@ describe('命令 status：查看进度', () => {
     }
   });
 
-  it('不在学生项目里运行 status 时给出可读错误', () => {
+  it('不在学生项目里运行 status 时给出可读错误', async () => {
     const root = tempRoot();
 
-    const result = runCli(['status'], { cwd: root });
+    const result = await runCli(['status'], { cwd: root });
 
     expect(result.code).not.toBe(0);
     expect(result.lines.join('\n')).toMatch(/ai-hero new/);

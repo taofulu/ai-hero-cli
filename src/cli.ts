@@ -1,13 +1,17 @@
-import { join } from 'node:path';
 import { ProjectStore, STEP_LABELS, STEPS } from './project/store.js';
+import { grillCommand } from './commands/grill.js';
 
 export type CliResult = { code: number; lines: string[] };
 
 export type CliDeps = {
   cwd: string;
+  /** 交互式命令的问题应答器；缺省视为非交互终端。 */
+  input?: (prompt: string) => Promise<string | undefined>;
+  /** 交互式命令的输出收集器；缺省静默（测试收集用）。 */
+  out?: (line: string) => void;
 };
 
-const USAGE = '用法：ai-hero <new|status>';
+const USAGE = '用法：ai-hero <new|grill|status>';
 
 function newCommand(args: string[], deps: CliDeps): CliResult {
   const name = args[0];
@@ -46,11 +50,13 @@ function statusCommand(_args: string[], deps: CliDeps): CliResult {
   return { code: 0, lines };
 }
 
-export function runCli(argv: string[], deps: CliDeps): CliResult {
+export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> {
   const [cmd, ...args] = argv;
   switch (cmd) {
     case 'new':
       return newCommand(args, deps);
+    case 'grill':
+      return grillCommand(args, deps);
     case 'status':
       return statusCommand(args, deps);
     default:
@@ -59,8 +65,8 @@ export function runCli(argv: string[], deps: CliDeps): CliResult {
 }
 
 // 命令行入口由 bin 包装层调用；命令层测试直接使用 runCli。
-export function cliMain(argv: string[], deps: CliDeps): number {
-  const result = runCli(argv, deps);
+export async function cliMain(argv: string[], deps: CliDeps): Promise<number> {
+  const result = await runCli(argv, deps);
   for (const line of result.lines) console.log(line);
   return result.code;
 }
