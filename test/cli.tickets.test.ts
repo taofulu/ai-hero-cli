@@ -1,20 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
 import type { LlmClient } from '../src/llm/client.js';
-
-function tempRoot(): string {
-  return mkdtempSync(join(tmpdir(), 'ai-hero-test-'));
-}
-
-function scriptedInput(answers: string[]) {
-  const queue = [...answers];
-  return async () => (queue.length > 0 ? queue.shift() : undefined);
-}
-
-const OFFLINE_ANSWERS = ['监测坐姿', '学生上课时', '预防驼背', '摄像头画面', '姿势统计图表', '识别弯腰动作', '先只做统计', '能演示统计结果'];
+import { OFFLINE_ANSWERS, collector, scriptedInput, tempRoot } from './helpers.js';
 
 async function setupProjectWithSpec(llm?: LlmClient): Promise<string> {
   const root = tempRoot();
@@ -97,8 +86,3 @@ describe('命令 tickets：LLM 切分路径', () => {
     expect(card2).toContain('#1');
   });
 });
-
-function collector() {
-  const collected: string[] = [];
-  return { collected, out: (line: string) => collected.push(line) };
-}

@@ -2,6 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+/** 不在任何学生项目里的统一提示文案。 */
+export const NOT_IN_PROJECT = '✗ 这里不在任何学生项目里。先用 ai-hero new <项目名> 创建一个。';
+
 export type StepState = '未开始' | '进行中' | '已完成';
 
 export const STEPS = ['grill', 'spec', 'tickets', 'implement', 'review'] as const;
@@ -73,6 +76,14 @@ export class ProjectStore {
     const file = join(root, AI_HERO_DIR, PROGRESS_FILE);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, JSON.stringify(progress, null, 2) + '\n', 'utf8');
+  }
+
+  /** 读取-修改-写回进度文件。 */
+  updateProgress(root: string, update: (progress: Progress) => void): Progress {
+    const progress = this.readProgress(root);
+    update(progress);
+    this.writeProgress(root, progress);
+    return progress;
   }
 
   readSession(root: string): GrillSessionFile {

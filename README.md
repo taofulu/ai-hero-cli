@@ -38,7 +38,7 @@ ai-hero tickets
 ai-hero status
 ```
 
-回答"不知道"会得到提示；中途退出（`q` 或 Ctrl+C 结束输入）会自动保存进度，下次 `ai-hero grill` 从未答的题继续。
+回答"不知道"会得到提示；中途退出（`q` 或 Ctrl+C 结束输入）会自动保存进度，下次 `ai-hero grill` 从未答的题继续。拷问完成后重跑 `ai-hero grill` 可逐题修改答案（回车保留原答案），改完再跑 `ai-hero spec` 即可覆盖旧 Spec。
 
 ## 配置 LLM（可选）
 

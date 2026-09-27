@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { OpenAiCompatibleClient, resolveConfig } from '../llm/client.js';
+import { parseLlmJson, resolveLlmClient } from '../llm/client.js';
 import type { LlmClient } from '../llm/client.js';
 import type { CliDeps, CliResult } from '../cli.js';
-import { ProjectStore } from '../project/store.js';
+import { NOT_IN_PROJECT, ProjectStore } from '../project/store.js';
 
 type LlmTicket = {
   title: string;
@@ -20,7 +20,7 @@ export async function ticketsCommand(_args: string[], deps: CliDeps): Promise<Cl
   const store = new ProjectStore();
   const root = store.findProjectRoot(deps.cwd);
   if (!root) {
-    out('✗ 这里不在任何学生项目里。先用 ai-hero new <项目名> 创建一个。');
+    out(NOT_IN_PROJECT);
     return { code: 1, lines: [] };
   }
   const specFile = join(root, 'docs', 'spec.md');
@@ -30,12 +30,7 @@ export async function ticketsCommand(_args: string[], deps: CliDeps): Promise<Cl
   }
   const spec = readFileSync(specFile, 'utf8');
 
-  const llm =
-    deps.llm ??
-    (() => {
-      const cfg = resolveConfig({ configFile: deps.configFile, env: deps.env });
-      return cfg ? new OpenAiCompatibleClient(cfg) : undefined;
-    })();
+  const llm = resolveLlmClient(deps);
 
   const projectName = store.readProgress(root).project;
   let cards: LlmTicket[];
@@ -82,9 +77,9 @@ ${card.criteria.map((c) => `- [ ] ${c}`).join('\n')}
     writeFileSync(join(dir, `${nn}-${safeTitle}.md`), markdown, 'utf8');
   });
 
-  const progress = store.readProgress(root);
-  progress.steps.tickets = '已完成';
-  store.writeProgress(root, progress);
+  store.updateProgress(root, (p) => {
+    p.steps.tickets = '已完成';
+  });
 
   out(`✓ 已生成 ${cards.length} 张任务卡：docs/tickets/（${sourceNote}）`);
   out('按阻塞顺序逐张完成并勾选验收标准。');
@@ -97,9 +92,7 @@ async function renderLlmTickets(llm: LlmClient, spec: string, projectName: strin
     '每张卡独立可验证、按学习难度排序。只输出 JSON：' +
     '{"tickets":[{"title":"卡名","what":"端到端要做什么","criteria":["验收标准"],"blockedBy":[被阻塞的卡序号数组，从1开始]}]}，全中文。';
   const raw = await llm.complete(`项目名：${projectName}\n\nSpec：\n${spec}`, system);
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('LLM 未返回 JSON');
-  const parsed = JSON.parse(match[0]) as LlmTickets;
+  const parsed = parseLlmJson<LlmTickets>(raw);
   if (!parsed.tickets?.length) throw new Error('LLM 未返回任务卡');
   return parsed.tickets;
 }

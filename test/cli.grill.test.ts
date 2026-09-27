@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
 import type { CliDeps } from '../src/cli.js';
-
-function tempRoot(): string {
-  return mkdtempSync(join(tmpdir(), 'ai-hero-test-'));
-}
+import { OFFLINE_ANSWERS, scriptedInput, tempRoot } from './helpers.js';
 
 /** 建好一个学生项目，返回项目根目录与带收集器的 deps */
 async function setupProject(): Promise<{ root: string; deps: () => CliDeps & { collected: string[] } }> {
@@ -23,18 +19,12 @@ async function setupProject(): Promise<{ root: string; deps: () => CliDeps & { c
   };
 }
 
-/** 把脚本化答案包成 input 提供器，答案用完后返回 undefined（模拟终端结束） */
-function scriptedInput(answers: string[]): (prompt: string) => Promise<string | undefined> {
-  const queue = [...answers];
-  return async () => (queue.length > 0 ? queue.shift() : undefined);
-}
-
 describe('命令 grill：离线拷问（无 key）', () => {
   it('依次呈现内置问卷全部问题，答完输出问答汇总并落盘', async () => {
     const { root, deps } = await setupProject();
     const d = deps();
 
-    const result = await runCli(['grill'], { ...d, input: scriptedInput(['监测坐姿', '学生上课时', '预防驼背', '摄像头画面', '姿势统计图表', '识别弯腰动作', '先只做统计', '能演示统计结果']) });
+    const result = await runCli(['grill'], { ...d, input: scriptedInput(OFFLINE_ANSWERS) });
 
     expect(result.code).toBe(0);
     const text = d.collected.join('\n');
@@ -91,6 +81,30 @@ describe('命令 grill：离线拷问（无 key）', () => {
     expect(session.answers[0].answer).toBe('监测坐姿');
     const status = await runCli(['status'], { cwd: root });
     expect(status.lines.join('\n')).toContain('拷问：已完成');
+  });
+
+  it('拷问完成后重跑可逐题修改答案（补充新答案），未修改的保留', async () => {
+    const { root, deps } = await setupProject();
+    const d1 = deps();
+    await runCli(['grill'], { ...d1, input: scriptedInput(OFFLINE_ANSWERS) });
+
+    // 重跑：第 1、3 题给出新答案，其余回车保留原答案
+    const d2 = deps();
+    const result = await runCli(['grill'], {
+      ...d2,
+      input: scriptedInput(['y', '监测学生课堂坐姿并统计不良姿势时长', '', '长期驼背影响视力和脊柱', '', '', '', '', '']),
+    });
+
+    expect(result.code).toBe(0);
+    const text = d2.collected.join('\n');
+    expect(text).toMatch(/拷问已完成/);
+    expect(text).toContain('原答：监测坐姿');
+    expect(text).toContain('答案已更新');
+    const session = JSON.parse(readFileSync(join(root, '.ai-hero', 'grill-session.json'), 'utf8'));
+    expect(session.answers).toHaveLength(8);
+    expect(session.answers[0].answer).toBe('监测学生课堂坐姿并统计不良姿势时长');
+    expect(session.answers[2].answer).toBe('长期驼背影响视力和脊柱');
+    expect(session.answers[1].answer).toBe('学生上课时');
   });
 
   it('不在学生项目里运行 grill 时给出可读错误', async () => {

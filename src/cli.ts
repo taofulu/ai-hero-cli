@@ -1,4 +1,4 @@
-import { ProjectStore, STEP_LABELS, STEPS } from './project/store.js';
+import { NOT_IN_PROJECT, ProjectStore, STEP_LABELS, STEPS } from './project/store.js';
 import { grillCommand } from './commands/grill.js';
 import { configCommand } from './commands/config.js';
 import { specCommand } from './commands/spec.js';
@@ -48,7 +48,7 @@ function placeholderCommand(deps: CliDeps): CliResult {
   const root = store.findProjectRoot(deps.cwd);
   const hint = root
     ? 'MVP 未开放：五步法的前半程（拷问 → Spec → 任务卡）已可用，实现与审查将在后续版本提供。'
-    : '✗ 这里不在任何学生项目里。先用 ai-hero new <项目名> 创建一个。';
+    : NOT_IN_PROJECT;
   return { code: 1, lines: [hint] };
 }
 
@@ -58,7 +58,7 @@ function statusCommand(_args: string[], deps: CliDeps): CliResult {
   if (!root) {
     return {
       code: 1,
-      lines: ['✗ 这里不在任何学生项目里。先用 ai-hero new <项目名> 创建一个。'],
+      lines: [NOT_IN_PROJECT],
     };
   }
   const progress = store.readProgress(root);

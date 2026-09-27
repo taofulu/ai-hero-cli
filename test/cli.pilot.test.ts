@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -36,6 +36,13 @@ describe('端到端试点（真实进程，管道输入）', () => {
     expect(spec).toContain('用户故事');
 
     run(['tickets'], undefined, projectRoot);
+    const ticketsDir = join(projectRoot, 'docs', 'tickets');
+    const cards = readdirSync(ticketsDir).filter((f) => f.endsWith('.md'));
+    expect(cards.length).toBeGreaterThanOrEqual(3);
+    const firstCard = readFileSync(join(ticketsDir, cards[0]), 'utf8');
+    expect(firstCard).toContain('- [ ]');
+    expect(firstCard).toContain('被阻塞于');
+
     const progress = JSON.parse(readFileSync(join(projectRoot, '.ai-hero', 'progress.json'), 'utf8'));
     expect(progress.steps).toEqual({
       grill: '已完成',

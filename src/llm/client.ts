@@ -90,3 +90,21 @@ export class OpenAiCompatibleClient implements LlmClient {
     return content;
   }
 }
+
+/** 从 LLM 原始输出提取 JSON 对象；提取或解析失败时抛可读错误（调用方降级）。 */
+export function parseLlmJson<T>(raw: string): T {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('LLM 未返回 JSON');
+  return JSON.parse(match[0]) as T;
+}
+
+/** 命令层统一的 LLM 解析：注入优先（测试），否则按配置解析；无 key 返回 undefined（离线降级）。 */
+export function resolveLlmClient(deps: {
+  llm?: LlmClient;
+  configFile?: string;
+  env?: NodeJS.ProcessEnv;
+}): LlmClient | undefined {
+  if (deps.llm) return deps.llm;
+  const cfg = resolveConfig({ configFile: deps.configFile, env: deps.env });
+  return cfg ? new OpenAiCompatibleClient(cfg) : undefined;
+}

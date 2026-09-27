@@ -1,24 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
 import type { CliDeps } from '../src/cli.js';
 import type { LlmClient } from '../src/llm/client.js';
-
-function tempRoot(): string {
-  return mkdtempSync(join(tmpdir(), 'ai-hero-test-'));
-}
-
-function collector() {
-  const collected: string[] = [];
-  return { collected, out: (line: string) => collected.push(line) };
-}
-
-function scriptedInput(answers: string[]) {
-  const queue = [...answers];
-  return async () => (queue.length > 0 ? queue.shift() : undefined);
-}
+import { collector, scriptedInput, tempRoot } from './helpers.js';
 
 async function setupProject(): Promise<string> {
   const root = tempRoot();

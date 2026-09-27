@@ -1,4 +1,5 @@
-import type { GrillSessionFile } from '../project/store.js';
+import type { GrillSessionFile, StepState } from '../project/store.js';
+import { parseLlmJson } from '../llm/client.js';
 import type { LlmClient } from '../llm/client.js';
 import type { Question } from './questions.js';
 
@@ -12,7 +13,7 @@ export class GrillEngine {
     private readonly questions: Question[],
     private readonly load: () => GrillSessionFile,
     private readonly save: (session: GrillSessionFile) => void,
-    private readonly onProgress: (step: 'markStarted' | 'markDone') => void,
+    private readonly onProgress: (step: 'grill', state: StepState) => void,
     llm?: LlmClient,
   ) {
     this.llm = llm;
@@ -59,11 +60,11 @@ export class GrillEngine {
   }
 
   markStarted(): void {
-    this.onProgress('markStarted');
+    this.onProgress('grill', '进行中');
   }
 
   complete(): void {
-    this.onProgress('markDone');
+    this.onProgress('grill', '已完成');
   }
 
   /** 问答汇总：全部已答题目与学生的回答。 */
@@ -81,17 +82,8 @@ export class GrillEngine {
       '（想法/用户/问题/数据/输出/AI环节/范围/成功标准）。' +
       '只输出 JSON：{"question":"问题","hint":"学生答不上来时的提示"}，不要输出其他内容。';
     const raw = await this.llm!.complete(history || '（学生还没有回答，请从项目想法问起）', system);
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('LLM 未返回 JSON');
-    const parsed = JSON.parse(match[0]) as { question?: string; hint?: string };
+    const parsed = parseLlmJson<{ question?: string; hint?: string }>(raw);
     if (!parsed.question?.trim()) throw new Error('LLM 返回的问题为空');
     return { text: parsed.question.trim(), hint: parsed.hint?.trim() || '结合你的项目想想。' };
   }
-}
-
-export function applyProgressMark(
-  progress: { steps: { grill: string } },
-  mark: 'markStarted' | 'markDone',
-): void {
-  progress.steps.grill = mark === 'markDone' ? '已完成' : '进行中';
 }

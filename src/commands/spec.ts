@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { OpenAiCompatibleClient, resolveConfig } from '../llm/client.js';
+import { parseLlmJson, resolveLlmClient } from '../llm/client.js';
 import type { LlmClient } from '../llm/client.js';
 import type { CliDeps, CliResult } from '../cli.js';
-import { ProjectStore } from '../project/store.js';
+import { NOT_IN_PROJECT, ProjectStore } from '../project/store.js';
 
 type Answered = { question: string; answer: string };
 
@@ -22,7 +22,7 @@ export async function specCommand(_args: string[], deps: CliDeps): Promise<CliRe
   const store = new ProjectStore();
   const root = store.findProjectRoot(deps.cwd);
   if (!root) {
-    out('✗ 这里不在任何学生项目里。先用 ai-hero new <项目名> 创建一个。');
+    out(NOT_IN_PROJECT);
     return { code: 1, lines: [] };
   }
   const answers = store.readSession(root).answers;
@@ -31,12 +31,7 @@ export async function specCommand(_args: string[], deps: CliDeps): Promise<CliRe
     return { code: 1, lines: [] };
   }
 
-  const llm =
-    deps.llm ??
-    (() => {
-      const cfg = resolveConfig({ configFile: deps.configFile, env: deps.env });
-      return cfg ? new OpenAiCompatibleClient(cfg) : undefined;
-    })();
+  const llm = resolveLlmClient(deps);
 
   const projectName = store.readProgress(root).project;
   let markdown: string;
@@ -55,9 +50,9 @@ export async function specCommand(_args: string[], deps: CliDeps): Promise<CliRe
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, markdown, 'utf8');
 
-  const progress = store.readProgress(root);
-  progress.steps.spec = '已完成';
-  store.writeProgress(root, progress);
+  store.updateProgress(root, (p) => {
+    p.steps.spec = '已完成';
+  });
 
   out('✓ Spec 已生成：docs/spec.md');
   out('下一步：运行 ai-hero tickets 把 Spec 切分任务卡。');
@@ -73,12 +68,13 @@ function bulleted(items: string[]): string {
 }
 
 export function renderOfflineSpec(answers: Answered[], projectName: string): string {
-  const pick = (index: number) => answers[index]?.answer?.trim() ?? '';
-  const user = pick(1) || '目标用户';
-  const idea = pick(0) || '（待补充项目想法）';
-  const problem = pick(2) || '上面提到的问题';
-  const output = pick(4) || '统计结果';
-  const scope = pick(6) || '以问答要点为准';
+  // 按问题文本的语义关键词取答案，不依赖问卷题序（LLM 自适应追问的问题顺序不定）。
+  const find = (re: RegExp) => answers.find((a) => re.test(a.question))?.answer?.trim() ?? '';
+  const user = find(/给谁|谁用|用户/) || '目标用户';
+  const idea = find(/想法|做什么/) || '（待补充项目想法）';
+  const problem = find(/解决什么|什么问题|会发生什么/) || '上面提到的问题';
+  const output = find(/输出|看到什么/) || '统计结果';
+  const scope = find(/只做|范围|不做/) || '以问答要点为准';
 
   return `# Spec：${projectName}
 
@@ -110,9 +106,7 @@ async function renderLlmSpec(llm: LlmClient, answers: Answered[], projectName: s
     '"userStories":["作为…，我想…，以便…"],"decisions":["实现决定"],"outOfScope":["明确不做的事"]}，' +
     '全部用中文，userStories 至少 5 条。';
   const raw = await llm.complete(`项目名：${projectName}\n\n拷问问答：\n${history}`, system);
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('LLM 未返回 JSON');
-  const spec = JSON.parse(match[0]) as LlmSpec;
+  const spec = parseLlmJson<LlmSpec>(raw);
 
   const sections = [`# Spec：${spec.title?.trim() || projectName}`];
   if (spec.problem) sections.push(`## 问题陈述\n${spec.problem}`);
