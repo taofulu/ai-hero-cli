@@ -1,5 +1,6 @@
 import { isDontKnow, QUESTIONNAIRE } from '../grill/questions.js';
 import { applyProgressMark, GrillEngine } from '../grill/session.js';
+import { OpenAiCompatibleClient, resolveConfig } from '../llm/client.js';
 import type { CliDeps, CliResult } from '../cli.js';
 import { ProjectStore } from '../project/store.js';
 
@@ -17,6 +18,14 @@ export async function grillCommand(_args: string[], deps: CliDeps): Promise<CliR
     return { code: 1, lines: [] };
   }
 
+  // LLM 可用性：注入优先（测试），否则按配置解析；无 key 走离线降级。
+  const llm =
+    deps.llm ??
+    (() => {
+      const cfg = resolveConfig({ configFile: deps.configFile, env: deps.env });
+      return cfg ? new OpenAiCompatibleClient(cfg) : undefined;
+    })();
+
   const engine = new GrillEngine(
     QUESTIONNAIRE,
     () => store.readSession(root),
@@ -26,16 +35,17 @@ export async function grillCommand(_args: string[], deps: CliDeps): Promise<CliR
       applyProgressMark(progress, mark);
       store.writeProgress(root, progress);
     },
+    llm,
   );
 
   if (store.readProgress(root).steps.grill === '未开始') {
     engine.markStarted();
   }
 
-  let question = engine.nextQuestion();
-  while (question) {
-    const { index, total } = engine.position(question);
-    out(`第 ${index}/${total} 题：${question.text}`);
+  let current = await engine.nextQuestion();
+  while (current) {
+    if (current.note) out(`⚠ ${current.note}。`);
+    out(`第 ${engine.answeredCount() + 1}/${engine.total()} 题：${current.text}`);
 
     const raw = await deps.input('> ');
     const answer = raw?.trim() ?? '';
@@ -44,17 +54,17 @@ export async function grillCommand(_args: string[], deps: CliDeps): Promise<CliR
       return { code: 0, lines: [] };
     }
     if (answer === '' || isDontKnow(answer)) {
-      out(`提示：${question.hint}`);
+      out(`提示：${current.hint ?? '结合你的项目想想。'}`);
       continue;
     }
-    engine.record(question, answer);
-    question = engine.nextQuestion();
+    engine.record(current, answer);
+    current = await engine.nextQuestion();
   }
 
   engine.complete();
   out('拷问完成！你的回答汇总：');
-  for (const { question: text, answer } of engine.summary()) {
-    out(`- ${text}`);
+  for (const { question, answer } of engine.summary()) {
+    out(`- ${question}`);
     out(`  答：${answer}`);
   }
   out('下一步：运行 ai-hero spec 把回答合成 Spec。');

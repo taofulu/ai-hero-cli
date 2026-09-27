@@ -1,5 +1,7 @@
 import { ProjectStore, STEP_LABELS, STEPS } from './project/store.js';
 import { grillCommand } from './commands/grill.js';
+import { configCommand } from './commands/config.js';
+import type { LlmClient } from './llm/client.js';
 
 export type CliResult = { code: number; lines: string[] };
 
@@ -9,9 +11,15 @@ export type CliDeps = {
   input?: (prompt: string) => Promise<string | undefined>;
   /** 交互式命令的输出收集器；缺省静默（测试收集用）。 */
   out?: (line: string) => void;
+  /** LLM 配置文件路径；缺省 ~/.ai-hero/config.json（测试注入临时路径）。 */
+  configFile?: string;
+  /** 环境变量；缺省 process.env（测试注入隔离环境）。 */
+  env?: NodeJS.ProcessEnv;
+  /** 注入的 LLM 客户端（测试用 fake）；缺省按配置解析。 */
+  llm?: LlmClient;
 };
 
-const USAGE = '用法：ai-hero <new|grill|status>';
+const USAGE = '用法：ai-hero <new|grill|spec|tickets|config|status>';
 
 function newCommand(args: string[], deps: CliDeps): CliResult {
   const name = args[0];
@@ -57,6 +65,12 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
       return newCommand(args, deps);
     case 'grill':
       return grillCommand(args, deps);
+    case 'spec':
+      return { code: 1, lines: ['✗ spec 将在后续版本提供（MVP 未开放）。'] };
+    case 'tickets':
+      return { code: 1, lines: ['✗ tickets 将在后续版本提供（MVP 未开放）。'] };
+    case 'config':
+      return configCommand(args, deps);
     case 'status':
       return statusCommand(args, deps);
     default:

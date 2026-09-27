@@ -47,7 +47,7 @@ describe('命令 grill：离线拷问（无 key）', () => {
     expect(text).toContain('监测坐姿');
     // 问答落盘
     const session = JSON.parse(readFileSync(join(root, '.ai-hero', 'grill-session.json'), 'utf8'));
-    expect(Object.keys(session.answers)).toHaveLength(8);
+    expect(session.answers).toHaveLength(8);
     // 进度更新
     const status = await runCli(['status'], { cwd: root });
     expect(status.lines.join('\n')).toContain('拷问：已完成');
@@ -68,7 +68,7 @@ describe('命令 grill：离线拷问（无 key）', () => {
     // 同一题出现两次（重复问）
     expect(text.split('你的项目想法是什么').length - 1).toBeGreaterThanOrEqual(2);
     const session = JSON.parse(readFileSync(join(d.cwd, '.ai-hero', 'grill-session.json'), 'utf8'));
-    expect(session.answers.idea).toBe('嗯，监测坐姿');
+    expect(session.answers[0].answer).toBe('嗯，监测坐姿');
   });
 
   it('中断后重进从第一个未答的题继续，已答内容不丢', async () => {
@@ -87,8 +87,8 @@ describe('命令 grill：离线拷问（无 key）', () => {
     expect(d2.collected.join('\n')).toMatch(/第 3\/8 题/);
 
     const session = JSON.parse(readFileSync(join(root, '.ai-hero', 'grill-session.json'), 'utf8'));
-    expect(Object.keys(session.answers)).toHaveLength(8);
-    expect(session.answers.idea).toBe('监测坐姿');
+    expect(session.answers).toHaveLength(8);
+    expect(session.answers[0].answer).toBe('监测坐姿');
     const status = await runCli(['status'], { cwd: root });
     expect(status.lines.join('\n')).toContain('拷问：已完成');
   });

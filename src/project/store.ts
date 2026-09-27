@@ -25,7 +25,9 @@ const AI_HERO_DIR = '.ai-hero';
 const PROGRESS_FILE = 'progress.json';
 const SESSION_FILE = 'grill-session.json';
 
-export type GrillSessionFile = { answers: Record<string, string> };
+export type GrillSessionFile = {
+  answers: { question: string; answer: string }[];
+};
 
 /** 学生项目文件夹的产物读写与进度管理。 */
 export class ProjectStore {
@@ -75,7 +77,7 @@ export class ProjectStore {
 
   readSession(root: string): GrillSessionFile {
     const file = join(root, AI_HERO_DIR, SESSION_FILE);
-    if (!existsSync(file)) return { answers: {} };
+    if (!existsSync(file)) return { answers: [] };
     return JSON.parse(readFileSync(file, 'utf8')) as GrillSessionFile;
   }
 
